@@ -94,7 +94,8 @@ function ENT:Think()
 		return true
 	end
 
-	self:NormalizeTemperatureTo(envTemperature, 0.1)
+	self:NormalizeTemperatureTo(envTemperature, 10)
+	RD.EqualizeResourceTemperature(self, 10)
 
 	if self.UpdateWireOutput then
 		self:UpdateWireOutput()

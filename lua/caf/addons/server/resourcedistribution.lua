@@ -726,6 +726,104 @@ function RD.Link(ent, netid)
 	netindex.haschanged = true
 end
 
+local function getResourcesWeightedAverageTemp(resourceTable)
+	local resourcesWeight = 0
+	local resourcesTemperature = 0
+
+	for k, v in pairs(resourceTable) do
+		if k == "energy" then continue end -- Ignore energy's temperature
+		resourcesWeight = resourcesWeight + resourceTable[k].value
+		resourcesTemperature = resourcesTemperature + (resourceTable[k].temperature * resourceTable[k].value) -- The more of a resource you have, the more it affect the total temperature
+	end
+
+	return resourcesWeight, resourcesTemperature
+end
+
+local function normalizeResourceTemperatureTo(resourceTable, temperature, increment)
+	for k, v in pairs(resourceTable) do
+		if k == "energy" then continue end -- Ignore energy's temperature
+		if resourceTable[k].value == 0 then continue end -- Ignore empty resources
+		local newtemp = resourceTable[k].temperature + ((temperature - resourceTable[k].temperature) * increment / resourceTable[k].value)
+		if resourceTable[k].temperature ~= newtemp then
+			resourceTable[k].temperature = newtemp
+			resourceTable[k].haschanged = true
+		end
+	end
+end
+
+local function get_keys(t)
+	local keys = {}
+	for key,_ in pairs(t) do
+		table.insert(keys, key)
+	end
+	return keys
+end
+
+local function filterResourcesByKey(index, keysToKeep)
+	local filteredResources = {}
+
+	-- Iterate over each key in keysToKeep
+	for _, key in ipairs(keysToKeep) do
+		-- Check if the key exists in index.resources
+		if index.resources[key] then
+			-- If the key exists, include the resource in the filtered table
+			filteredResources[key] = index.resources[key]
+		end
+	end
+
+	-- Return the filtered resources table
+	return filteredResources
+end
+--[[
+	An entity's temperature will affect the temperature of the things inside.
+	However, in a network, all the resources of a same type are added up into a single value.
+	(For example, if you have several tanks with water, one could assume there's a pipe connecting them, thus making one continuous body of water)
+	For that reason, each entity in the network will contribute to equalize the temperature with the shared liquids.
+	This is especially critical if two tanks share the same resource, and one tank is hot while the other one is cold
+
+	NOTE : an entity should only affect the temperature of a resource in a network, if that entity can STORE that resource
+	Also a network resource can only affect an entity's temperature if that entity can also store the resource.
+]]
+function RD.EqualizeResourceTemperature(ent, increment)
+	if not ent_table[ent:EntIndex()] then
+		return
+	end
+	if ent:GetClass() == "generator_energy_fusion" then
+		return -- Not messing with the temperature of fusion gens.. Dori, we need to see about that
+	end
+
+	local index = ent_table[ent:EntIndex()]
+	local resourcesWeight
+	local resourcesTemperature
+
+	-- Get the keys of the resources that are actually stored inside that entity
+	local storedResources = get_keys(index.resources)
+	local effectiveResources
+
+	if index.network ~= 0 and nettable[index.network] then -- Fetch the resources in the network (only those that this entity can affect)
+		effectiveResources = filterResourcesByKey(nettable[index.network], storedResources)
+		resourcesWeight, resourcesTemperature = getResourcesWeightedAverageTemp(effectiveResources)
+	else -- Fetch the resources in the entity
+		resourcesWeight, resourcesTemperature = getResourcesWeightedAverageTemp(index.resources)
+	end
+
+	resourcesWeight = resourcesWeight + ent:GetThermalMass()
+	resourcesTemperature = resourcesTemperature + ent:GetTemperature() * ent:GetThermalMass()
+
+	local weightedAverage = resourcesTemperature / resourcesWeight
+
+	-- Now that we have the temperature that the resources, and the entity, should tend towards, we can update them
+	ent:NormalizeTemperatureTo(weightedAverage, increment)
+
+	if index.network ~= 0 and nettable[index.network] then -- Update all the resources in the network
+		normalizeResourceTemperatureTo(effectiveResources, weightedAverage, increment)
+		nettable[index.network].haschanged = true
+	else -- Update the resources in the entity
+		normalizeResourceTemperatureTo(index.resources, weightedAverage, increment)
+		index.haschanged = true
+	end
+end
+
 --[[
 	Unlink(entity)
 	
@@ -749,6 +847,7 @@ function RD.Unlink(ent)
 					index.resources[k].value = index.resources[k].maxvalue * percent
 					resindex.maxvalue = resindex.maxvalue - index.resources[k].maxvalue
 					resindex.value = resindex.value - index.resources[k].value
+					index.resources[k].temperature = resindex.temperature
 					index.resources[k].haschanged = true
 					resindex.haschanged = true
 				end

@@ -116,7 +116,11 @@ function ENT:DoNormalDraw(bDontDrawModel)
 		if num == -1 then
 			if table.Count(resources) > 0 then
 				for k, v in pairs(resources) do
-					OverlayText = OverlayText .. RD.GetProperResourceName(k) .. ": " .. v.value .. "/" .. v.maxvalue .. " (" .. math.floor(v.temperature) .. " K)\n"
+					local temperatureText = " (" .. math.floor(v.temperature) .. " K)"
+					if k == "energy" then
+						temperatureText = ""
+					end
+					OverlayText = OverlayText .. RD.GetProperResourceName(k) .. ": " .. v.value .. "/" .. v.maxvalue .. temperatureText .. "\n"
 				end
 			else
 				OverlayText = OverlayText .. "No Resources Connected\n"
@@ -127,7 +131,11 @@ function ENT:DoNormalDraw(bDontDrawModel)
 			if resnames then
 				for _, k in pairs(resnames) do
 					v = resources[k] or empty_value
-					OverlayText = OverlayText .. RD.GetProperResourceName(k) .. ": " .. v.value .. "/" .. v.maxvalue .. " (" .. math.floor(v.temperature) .. " K)\n"
+					local temperatureText = " (" .. math.floor(v.temperature) .. " K)"
+					if k == "energy" then
+						temperatureText = ""
+					end
+					OverlayText = OverlayText .. RD.GetProperResourceName(k) .. ": " .. v.value .. "/" .. v.maxvalue .. temperatureText .. "\n"
 				end
 			end
 
@@ -136,7 +144,11 @@ function ENT:DoNormalDraw(bDontDrawModel)
 
 				for _, k in pairs(genresnames) do
 					v = resources[k] or empty_value
-					OverlayText = OverlayText .. RD.GetProperResourceName(k) .. ": " .. v.value .. "/" .. v.maxvalue .. " (" .. math.floor(v.temperature) .. " K)\n"
+					local temperatureText = " (" .. math.floor(v.temperature) .. " K)"
+					if k == "energy" then
+						temperatureText = ""
+					end
+					OverlayText = OverlayText .. RD.GetProperResourceName(k) .. ": " .. v.value .. "/" .. v.maxvalue .. temperatureText .. "\n"
 				end
 			end
 		end
