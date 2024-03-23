@@ -101,6 +101,8 @@ function ENT:Think()
 
 	if self.Active == 1 then
 		self:Extract_Energy(selfTemperature)
+	else
+		WireLib.TriggerOutput(self, "Fusion", 0)
 	end
 	return true
 end
